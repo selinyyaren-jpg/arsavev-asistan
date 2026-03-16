@@ -1,144 +1,187 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import time
 import plotly.express as px
+import time
 
-# --- SAYFA AYARLARI VE CSS ---
-st.set_page_config(page_title="ArsaVev Kurumsal Zeka", page_icon="🏢", layout="wide")
+# --- 1. SAYFA AYARLARI ---
+st.set_page_config(page_title="ArsaVev Kurumsal BI", page_icon="🏢", layout="wide", initial_sidebar_state="expanded")
 
-# ArsaVev kırmızı tonlarını arayüze yediren özel tasarım (CSS)
+# --- 2. ARSAVEV MARKA KİMLİĞİ & CSS (SİHİRLİ KISIM) ---
 st.markdown("""
     <style>
-    .stButton>button {background-color: #d1121d; color: white; border-radius: 8px;}
-    .stButton>button:hover {background-color: #a00d15; border-color: #a00d15;}
-    .stTabs [data-baseweb="tab-list"] {gap: 20px;}
-    .stTabs [data-baseweb="tab"] {padding: 10px 20px; font-weight: bold; border-radius: 5px 5px 0 0;}
-    .stTabs [aria-selected="true"] {background-color: #fce8e9; border-bottom: 3px solid #d1121d;}
+    /* Kurumsal Font: Montserrat */
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Montserrat', sans-serif !important;
+    }
+
+    /* Uygulama Arka Planı (Açık Gri - Profesyonel BI Görünümü) */
+    .stApp {
+        background-color: #f4f6f9;
+    }
+
+    /* Sol Menü (Sidebar) Şık Tasarım */
+    [data-testid="stSidebar"] {
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+    }
+
+    /* KPI Metrik Kartları (Gölge, Kenarlık ve Marka Rengi Aksanı) */
+    [data-testid="stMetric"] {
+        background-color: #ffffff;
+        border-radius: 8px;
+        padding: 15px 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.04);
+        border-left: 4px solid #d1121d; /* ArsaVev Kırmızısı */
+    }
+    [data-testid="stMetricLabel"] {
+        color: #64748b;
+        font-weight: 600;
+        font-size: 14px;
+    }
+    [data-testid="stMetricValue"] {
+        color: #0f172a;
+        font-weight: 700;
+    }
+
+    /* Aksiyon Butonu (Gradient Kırmızı) */
+    .stButton>button {
+        background: linear-gradient(135deg, #d1121d 0%, #900b12 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 12px 24px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(209, 18, 29, 0.25);
+    }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(209, 18, 29, 0.4);
+    }
+
+    /* Streamlit Default Üst ve Alt Bilgilerini Gizleme (Tam Uygulama Hissi) */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {background-color: transparent;}
+    
+    /* Sekme Tasarımı */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: #ffffff;
+        padding: 5px 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+    .stTabs [data-baseweb="tab"] {
+        color: #475569;
+        font-weight: 600;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #d1121d !important;
+        border-bottom-color: #d1121d !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- ÜST BİLGİ VE LOGO ---
-col_logo, col_title = st.columns([1, 5])
+# --- 3. HEADER & LOGO ---
+col_logo, col_text = st.columns([1, 6])
 with col_logo:
-    st.image("https://arsavev.com/wp-content/uploads/2023/11/logo_arsavev.png", width=150)
-with col_title:
-    st.title("ArsaVev Kurumsal Zeka (BI) & Satış Otomasyonu")
-    st.caption("Dijital Satış Ekipleri İçin Gerçek Zamanlı Portföy & Analitik Ekranı | V2.0 PRO")
+    st.image("https://arsavev.com/wp-content/uploads/2023/11/logo_arsavev.png", width=130)
+with col_text:
+    st.markdown("<h2 style='color: #0f172a; margin-bottom: 0px;'>Dijital Lead & Dönüşüm Paneli</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #64748b; font-size: 15px;'>ArsaVev Kurumsal BI (Business Intelligence) ve Satış Otomasyon Ekranı</p>", unsafe_allow_html=True)
 
-st.markdown("---")
+st.markdown("<br>", unsafe_allow_html=True)
 
-# --- SOL MENÜ (KONTROL PANELİ) ---
+# --- 4. SOL MENÜ (VERİ GİRİŞİ) ---
 with st.sidebar:
-    st.header("⚙️ Arama Parametreleri")
-    musteri_adi = st.text_input("Müşteri Adı Soyadı", "Ahmet Yılmaz")
+    st.markdown("<h3 style='color: #0f172a;'>🎯 Lead Girdisi</h3>", unsafe_allow_html=True)
     
-    st.subheader("Bölge & Bütçe")
-    bolge = st.selectbox("Hedef Lokasyon", ["Çanakkale / Ayvacık", "İzmir / Dikili", "Sakarya / Sapanca", "Balıkesir / Edremit"])
-    butce = st.slider("Maksimum Bütçe (Milyon TL)", min_value=1.0, max_value=10.0, value=2.5, step=0.1)
+    lead_adi = st.text_input("Lead Adı Soyadı", "Örn: Caner Taşkın")
+    lead_kaynagi = st.selectbox("Trafik Kaynağı", ["Instagram Meta Ads", "Google Search", "Web Formu", "Influencer"])
+    ilgi_alani = st.selectbox("İlgilenilen Konsept", ["Tiny House Köyü", "Ekolojik Tarım", "Ticari Yatırım", "Klasik Parsel"])
     
-    st.subheader("Parsel Özellikleri")
-    imar_durumu = st.selectbox("İmar Tipi", ["Konut İmarlı", "Ticari İmarlı", "Tarım / Ekolojik"])
+    analiz_butonu = st.button("AI Profil Analizini Başlat ⚡", use_container_width=True)
     
-    analiz_butonu = st.button("Sistemi Çalıştır 🚀", use_container_width=True)
-    st.info("💡 Sistem, ArsaVev simülasyon veritabanı üzerinden makine öğrenmesi algoritmalarıyla en yüksek 'Yatırım Getirisi (ROI)' sunan portföyleri süzer.")
+    st.markdown("---")
+    st.caption("🔒 Tasarım tamamen ArsaVev marka yönergelerine (UI/UX) uygun olarak özelleştirilmiştir.")
 
-# --- ANA EKRAN (SEKMELİ YAPI) ---
-# Sekmeleri oluşturuyoruz (Tıpkı profesyonel bir program gibi)
-tab1, tab2, tab3 = st.tabs(["📊 Makro Analiz & Metrikler", "🗺️ İnteraktif Lokasyon Haritası", "📲 Satış/Teklif Çıktısı"])
-
+# --- 5. ANA EKRAN (ANALİZ VE ÇIKTILAR) ---
 if analiz_butonu:
-    with st.spinner("Büyük veri setleri taranıyor ve yapay zeka analizleri tamamlanıyor..."):
-        time.sleep(2) # İşlem yapıyormuş hissi
-        
-    # --- SEKMELERİN İÇERİĞİ ---
-    
-    # 1. SEKME: ANALİZ VE GRAFİKLER
-    with tab1:
-        st.subheader(f"📌 {bolge} - Bölgesel Performans Özeti")
-        
-        # Metrikler
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Bölge Yapay Zeka Skoru", "9.2/10", "+0.4 Yükseliş")
-        m2.metric("Ortalama ROI (Amortisman)", "4.1 Yıl", "Bölge ortalamasından %15 daha iyi", delta_color="normal")
-        m3.metric("Öngörülen Yıllık Prim", "%65", "+%12 Son 6 Ay")
-        m4.metric("Eşleşen Parsel Sayısı", "3 Adet", "Stok Kritik Seviyede", delta_color="off")
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Grafikler (Plotly ile çok estetik)
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("**Aylara Göre m² Birim Fiyat Endeksi (TL)**")
-            # Rastgele ama inandırıcı veri
-            aylar = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
-            fiyatlar = [1500, 1550, 1620, 1680, 1790, 1850, 1950, 2100, 2250, 2400, 2550, 2750]
-            df_trend = pd.DataFrame({'Ay': aylar, 'm² Fiyatı': fiyatlar})
+    if not lead_adi or lead_adi == "Örn: Caner Taşkın":
+        st.warning("Lütfen analize başlamak için müşteri adını giriniz.")
+    else:
+        with st.spinner("Dijital veriler işleniyor, marka renklerine uygun rapor oluşturuluyor..."):
+            time.sleep(1.5)
             
-            fig = px.area(df_trend, x='Ay', y='m² Fiyatı', color_discrete_sequence=['#d1121d'])
-            fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=300)
-            st.plotly_chart(fig, use_container_width=True)
-            
-        with c2:
-            st.markdown("**Bölgedeki Alıcı Profil Dağılımı**")
-            # Pasta grafik
-            df_profil = pd.DataFrame({
-                'Profil': ['Yatırımcı', 'Oturum Amaçlı', 'Ticari', 'Yabancı Yatırımcı'],
-                'Oran': [45, 30, 15, 10]
-            })
-            fig2 = px.pie(df_profil, values='Oran', names='Profil', hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
-            fig2.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=300)
-            st.plotly_chart(fig2, use_container_width=True)
-
-    # 2. SEKME: HARİTA
-    with tab2:
-        st.subheader("📍 Eşleşen Portföylerin Konum Dağılımı")
-        st.markdown("Aşağıdaki harita, kriterlerinize uygun olan arsaların konumlarını göstermektedir (Simülasyon verisidir).")
-        
-        # Seçilen bölgeye göre koordinat (Küçük bir detay ama harika görünür)
-        if "Çanakkale" in bolge:
-            lat, lon = 39.6, 26.4 # Ayvacık civarı
-        elif "İzmir" in bolge:
-            lat, lon = 39.0, 26.8 # Dikili civarı
-        elif "Sakarya" in bolge:
-            lat, lon = 40.7, 30.2 # Sapanca
+        if ilgi_alani == "Tiny House Köyü":
+            uygun_proje = "Ayvacık Tiny House Yaşam Projesi"
+            kapanis = "%42"
+        elif ilgi_alani == "Ekolojik Tarım":
+            uygun_proje = "Dikili Eko-Tarım Arazileri"
+            kapanis = "%38"
         else:
-            lat, lon = 39.5, 27.9 # Default Balıkesir
-            
-        # Harita için veri oluşturma
-        df_map = pd.DataFrame(
-            np.random.randn(3, 2) / [50, 50] + [lat, lon],
-            columns=['lat', 'lon']
-        )
-        st.map(df_map, zoom=10)
+            uygun_proje = "Edremit Vizyon Yatırım Projesi"
+            kapanis = "%55"
 
-    # 3. SEKME: TEKLİF ÇIKTISI
-    with tab3:
-        st.subheader("📲 Optimize Edilmiş Dijital Satış Teklifi")
-        st.success(f"{musteri_adi} kişisi için kişiselleştirilmiş analiz metni hazırlandı. Kopyalayarak WhatsApp üzerinden paylaşabilirsiniz.")
+        # Sekmeli Yapı
+        tab1, tab2 = st.tabs(["📊 Kurumsal Dashboard", "📲 Müşteri İletişim Aksiyonu"])
         
-        teklif = f"""🏢 ARSAVEV KURUMSAL YATIRIM ANALİZİ
+        with tab1:
+            st.markdown(f"<h4 style='color: #d1121d;'>{lead_adi} - Lead Kalite ve Proje Eşleşmesi</h4>", unsafe_allow_html=True)
+            
+            # KPI Kartları
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Sıcaklık Skoru", "88/100", "A Sınıfı Lead")
+            c2.metric("Eşleşen Proje", uygun_proje)
+            c3.metric(f"{lead_kaynagi} Dönüşümü", kapanis, "+%4 Trend")
+            c4.metric("Önerilen Temas", "İlk 15 Dk", "Acil Aranmalı", delta_color="inverse")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Grafikler (Marka Renkleriyle)
+            col_g1, col_g2 = st.columns(2)
+            
+            with col_g1:
+                st.markdown("**Kampanya Dönüşüm Hacmi**")
+                df_bar = pd.DataFrame({
+                    'Projeler': ['Tiny House', 'Eko Tarım', 'Klasik', 'Ticari'],
+                    'Lead Sayısı': [120, 85, 200, 45]
+                })
+                # Kırmızı tonlarıyla grafik
+                fig_bar = px.bar(df_bar, x='Projeler', y='Lead Sayısı', color_discrete_sequence=['#d1121d'])
+                fig_bar.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+                st.plotly_chart(fig_bar, use_container_width=True)
+                
+            with col_g2:
+                st.markdown("**Kanal Kaynak Dağılımı**")
+                df_pie = pd.DataFrame({
+                    'Kaynak': ['Meta Ads', 'Google Search', 'Web Form', 'Organik'],
+                    'Yüzde': [45, 30, 15, 10]
+                })
+                # ArsaVev Kırmızısı ve kurumsal griler
+                fig_pie = px.pie(df_pie, values='Yüzde', names='Kaynak', hole=0.6, color_discrete_sequence=['#d1121d', '#334155', '#94a3b8', '#cbd5e1'])
+                fig_pie.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+                st.plotly_chart(fig_pie, use_container_width=True)
 
-Sayın {musteri_adi},
+        with tab2:
+            st.markdown("#### Satış Ekibi Otomasyon Çıktısı")
+            st.info("Bu metin müşterinin ilgilendiği proje konseptine göre otomatik şekillenmiştir.")
+            
+            wp_metni = f"""Merhaba {lead_adi} Bey/Hanım, 
+Ben ArsaVev Dijital Satış Ekibinden Yaren Selin.
 
-Dijital satış sistemlerimizin {butce} Milyon TL bütçe hedefinize özel gerçekleştirdiği tarama sonucunda; en yüksek getiri potansiyeline sahip lokasyon **{bolge}** olarak belirlenmiştir.
+'{lead_kaynagi}' üzerinden yayınladığımız '{ilgi_alani}' kampanyamızı incelediğinizi görüyorum. Dijital ekosistemimizdeki ilgi alanlarınıza en uygun ve lansman döneminde olan **{uygun_proje}** için şu an özel avantajlar sunuyoruz.
 
-📊 Bölge Performans Metrikleri:
-• Son 12 Aylık m² Değer Artışı: %65
-• Emsal ROI (Amortisman): 4.1 Yıl (Bölge ortalamasının üstünde)
-• İmar Durumu: {imar_durumu}
-
-📍 Sistem Seçimi:
-Yapay zeka altyapımız, bölgedeki altyapı projeleri ve demografik genişleme verilerini baz alarak sizin için 'Düşük Risk - Yüksek Getiri' endeksinde 3 farklı parsel eşleştirmesi yapmıştır.
-
-ArsaVev veri odaklı yatırım vizyonuyla, bu parsellerin detaylı konumları ve tapu bilgileri üzerinden dijital sunum yapmak isterim. İncelemek isterseniz randevu planlayabiliriz.
+Projemizin detayları ve güncel fiyatlandırmaları hakkında size kısa bir dijital sunum yapmak isterim. Gün içinde ne zaman müsaitsiniz?
 
 Saygılarımla,
 Yaren Selin Arı
 ArsaVev Dijital Uzman Yardımcısı
 """
-        st.text_area("Metni Kopyalayınız:", value=teklif, height=350)
+            st.text_area("Müşteriye Doğrudan İletilecek Metin:", value=wp_metni, height=280)
 
 else:
-    # Henüz butona basılmadıysa ekranda görünecek karşılama mesajı
-    st.info("👈 Analizi başlatmak için sol menüden müşteri parametrelerini belirleyip 'Sistemi Çalıştır' butonuna basınız.")
+    st.info("👈 Sistem hazır. Analiz başlatmak için sol paneli kullanınız.")
